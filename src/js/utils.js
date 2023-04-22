@@ -23,8 +23,27 @@
  * ```
  * */
 export function calcTileType(index, boardSize) {
-  // TODO: ваш код будет тут
-  return 'center';
+  let result;
+  if (index === 0) { // левый верхний
+    result = 'top-left';
+  } else if (index === boardSize - 1) { // правый верхний
+    result = 'top-right';
+  } else if (index < boardSize) { // верхние
+    result = 'top';
+  } else if (index === boardSize ** 2 - boardSize) { // левый нижний
+    result = 'bottom-left';
+  } else if (index === boardSize ** 2 - 1) { // правый нижний
+    result = 'bottom-right';
+  } else if (index > boardSize ** 2 - boardSize && index < boardSize ** 2 - 1) { // нижние
+    result = 'bottom';
+  } else if (index % boardSize === 0) { // левые
+    result = 'left';
+  } else if (index % boardSize === boardSize - 1) { // правые
+    result = 'right';
+  } else { // центральные
+    result = 'center';
+  }
+  return result;
 }
 
 export function calcHealthLevel(health) {
