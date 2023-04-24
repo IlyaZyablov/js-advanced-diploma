@@ -17,6 +17,15 @@ import PositionedCharacter from './PositionedCharacter';
 // чтобы выбрать верные позиции для персонажей
 import { calcTileType } from './utils';
 
+// функция, возвращающая вывод описания
+export function getDescription(strings, level, attack, defence, health) {
+  const levelIcon = strings[0];
+  const attackIcon = strings[1];
+  const defenceIcon = strings[2];
+  const healthIcon = strings[3];
+  return `${levelIcon} ${level} ${attackIcon} ${attack} ${defenceIcon} ${defence} ${healthIcon} ${health}`;
+}
+
 export default class GameController {
   constructor(gamePlay, stateService) {
     this.gamePlay = gamePlay;
@@ -28,6 +37,9 @@ export default class GameController {
     // TODO: load saved stated from stateService
     this.gamePlay.drawUi(themes.prairie);
     this.initCharacters();
+    // listeners
+    this.gamePlay.addCellEnterListener(this.onCellEnter.bind(this));
+    this.gamePlay.addCellLeaveListener(this.onCellLeave.bind(this));
   }
 
   initCharacters() {
@@ -95,10 +107,15 @@ export default class GameController {
   }
 
   onCellEnter(index) {
-    // TODO: react to mouse enter
+    if (this.gamePlay.cells[index].children.length > 0) {
+      const {
+        level, attack, defence, health,
+      } = this.gamePlay.cells[index].children[0].dataset;
+      this.gamePlay.showCellTooltip(getDescription`🎖${level}\u2694${attack}🛡${defence}\u2764${health}`, index);
+    }
   }
 
   onCellLeave(index) {
-    // TODO: react to mouse leave
+    this.gamePlay.hideCellTooltip(index);
   }
 }
