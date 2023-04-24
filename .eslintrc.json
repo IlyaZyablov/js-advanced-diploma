@@ -19,6 +19,7 @@
     "no-console": "off",
     "no-plusplus": ["error", { "allowForLoopAfterthoughts": true }],
     "arrow-parens": ["error", "as-needed"],
-    "no-alert": "off"
+    "no-alert": "off",
+    "no-lonely-if": "off"
   }
 }

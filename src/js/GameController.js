@@ -23,6 +23,9 @@ import PositionedCharacter from './PositionedCharacter';
 // чтобы выбрать верные позиции для персонажей
 import { calcTileType } from './utils';
 
+// импорт курсоров
+import cursors from './cursors';
+
 // функция, возвращающая вывод описания
 export function getDescription(strings, level, attack, defence, health) {
   const levelIcon = strings[0];
@@ -111,20 +114,30 @@ export default class GameController {
   }
 
   onCellClick(index) {
-    if (this.gameState.step === 'user') {
+    for (let cellIndex = 0; cellIndex < this.gamePlay.cells.length; cellIndex++) {
+      this.gamePlay.deselectCell(cellIndex); // убираем выделение других клеток
+    }
+
+    if (this.gameState.step === 'user') { // если наш ход
       if (this.gamePlay.cells[index].children.length > 0) {
         const child = this.gamePlay.cells[index].children[0];
-        if (
+        if ( // если выбран наш персонаж
           child.classList.contains('bowman')
           || child.classList.contains('magician')
           || child.classList.contains('swordsman')
         ) {
-          for (let cellIndex = 0; cellIndex < this.gamePlay.cells.length; cellIndex++) {
-            this.gamePlay.deselectCell(cellIndex);
-          }
-          this.gamePlay.selectCell(index);
+          this.gamePlay.selectCell(index); // добавляем выделение нужного персонажа
+          this.gameState.selectedChar = {
+            index,
+            type: child.dataset.type,
+          };
         } else {
-          GamePlay.showError('Это не Ваш персонаж!');
+          if (this.gameState.selectedChar.index === undefined) {
+            // если наш персонаж не выбран, и мы хотим выбрать персонажа противника
+            GamePlay.showError('Это не Ваш персонаж!');
+          } else {
+            console.log('проверяем атаку');
+          }
         }
       }
     } else {
@@ -134,14 +147,77 @@ export default class GameController {
 
   onCellEnter(index) {
     if (this.gamePlay.cells[index].children.length > 0) {
+      // показываем tooltip при наведении на любого персонажа
+      const child = this.gamePlay.cells[index].children[0];
       const {
         level, attack, defence, health,
-      } = this.gamePlay.cells[index].children[0].dataset;
+      } = child.dataset;
       this.gamePlay.showCellTooltip(getDescription`🎖${level}\u2694${attack}🛡${defence}\u2764${health}`, index);
+
+      // меняем курсор, если:
+      if ( // мы наводимся на своего персонажа
+        child.classList.contains('bowman')
+        || child.classList.contains('magician')
+        || child.classList.contains('swordsman')
+      ) {
+        this.gamePlay.setCursor(cursors.pointer);
+      } else { // мы наводимся не на своего персонажа
+        console.log('если навелись не на нашего');
+        if (this.gameState.selectedChar.index !== undefined) {
+          this.gamePlay.setCursor(cursors.crosshair);
+          this.gamePlay.selectCell(index, 'red'); // добавляем выделение противника
+        }
+      }
+    } else {
+      if (this.gameState.selectedChar.index !== undefined) {
+        // если персонаж может сюда пройти
+        if (this.canMove(index)) {
+          this.gamePlay.setCursor(cursors.pointer);
+          this.gamePlay.selectCell(index, 'green'); // добавляем выделение нужного квадрата
+        } else {
+          this.gamePlay.setCursor(cursors.notallowed);
+        }
+      }
     }
   }
 
   onCellLeave(index) {
     this.gamePlay.hideCellTooltip(index);
+    this.gamePlay.setCursor(cursors.auto);
+    if (this.gameState.selectedChar.index !== index) {
+      this.gamePlay.deselectCell(index);
+    }
+  }
+
+  canMove(index) {
+    const { selectedChar } = this.gameState;
+    let result = false;
+    // проверяем движение мечника
+    if (selectedChar.type === 'swordsman') {
+      if ( // движение по вертикали
+        Math.abs(selectedChar.index - index) % this.gamePlay.boardSize === 0
+        && Math.abs(selectedChar.index - index) <= this.gamePlay.boardSize * 4
+      ) {
+        result = true;
+      } else if ( // движение по горизонтали
+        Math.abs(selectedChar.index - index) <= 4
+        && this.getHorizontalLine(selectedChar.index) === this.getHorizontalLine(index)
+      ) {
+        result = true;
+      }
+    }
+    return result;
+  }
+
+  getHorizontalLine(index) {
+    let result = 0;
+    const size = this.gamePlay.boardSize;
+    for (let i = 0; i < size; i++) {
+      if (index >= size * i && index < size * (i + 1)) {
+        result = i + 1;
+        break;
+      }
+    }
+    return result;
   }
 }

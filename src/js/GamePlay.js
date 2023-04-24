@@ -81,6 +81,7 @@ export default class GamePlay {
       charEl.dataset.attack = position.character.attack;
       charEl.dataset.defence = position.character.defence;
       charEl.dataset.health = position.character.health;
+      charEl.dataset.type = position.character.type;
 
       const healthEl = document.createElement('div');
       healthEl.classList.add('health-level');
