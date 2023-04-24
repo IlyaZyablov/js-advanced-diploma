@@ -12,5 +12,14 @@
  * ```
  * */
 export default class Team {
-  // TODO: write your logic here
+  constructor(characters = []) {
+    if (!Array.isArray(characters)) {
+      throw new Error('Персонажи должны передаваться массивом!');
+    }
+    this.characters = [];
+    for (let i = 0; i < characters.length; i++) {
+      const char = characters[i];
+      this.characters.push(char);
+    }
+  }
 }
