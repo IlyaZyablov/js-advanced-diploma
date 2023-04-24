@@ -1,3 +1,9 @@
+// импорт GamePlay для использования статических методов
+import GamePlay from './GamePlay';
+
+// импорт модуля, хранящего данные о текущей ситуации на доске
+import GameState from './GameState';
+
 // импорт тем
 import themes from './themes';
 
@@ -30,6 +36,7 @@ export default class GameController {
   constructor(gamePlay, stateService) {
     this.gamePlay = gamePlay;
     this.stateService = stateService;
+    this.gameState = new GameState();
   }
 
   init() {
@@ -40,6 +47,7 @@ export default class GameController {
     // listeners
     this.gamePlay.addCellEnterListener(this.onCellEnter.bind(this));
     this.gamePlay.addCellLeaveListener(this.onCellLeave.bind(this));
+    this.gamePlay.addCellClickListener(this.onCellClick.bind(this));
   }
 
   initCharacters() {
@@ -103,7 +111,25 @@ export default class GameController {
   }
 
   onCellClick(index) {
-    // TODO: react to click
+    if (this.gameState.step === 'user') {
+      if (this.gamePlay.cells[index].children.length > 0) {
+        const child = this.gamePlay.cells[index].children[0];
+        if (
+          child.classList.contains('bowman')
+          || child.classList.contains('magician')
+          || child.classList.contains('swordsman')
+        ) {
+          for (let cellIndex = 0; cellIndex < this.gamePlay.cells.length; cellIndex++) {
+            this.gamePlay.deselectCell(cellIndex);
+          }
+          this.gamePlay.selectCell(index);
+        } else {
+          GamePlay.showError('Это не Ваш персонаж!');
+        }
+      }
+    } else {
+      GamePlay.showError('Сейчас не Ваш ход!');
+    }
   }
 
   onCellEnter(index) {
