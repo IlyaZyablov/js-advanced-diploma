@@ -40,6 +40,7 @@ export default class GameController {
     this.gamePlay = gamePlay;
     this.stateService = stateService;
     this.gameState = new GameState();
+    this.currentGame = 1;
   }
 
   init() {
@@ -51,16 +52,17 @@ export default class GameController {
     this.gamePlay.addCellEnterListener(this.onCellEnter.bind(this));
     this.gamePlay.addCellLeaveListener(this.onCellLeave.bind(this));
     this.gamePlay.addCellClickListener(this.onCellClick.bind(this));
+    this.gamePlay.addNewGameListener(this.onNewGameClick.bind(this));
   }
 
   initCharacters() {
     // формирование команды игрока
     const playerTypes = [Bowman, Swordsman, Magician];
-    const playerTeam = generateTeam(playerTypes, 3, 3);
+    const playerTeam = generateTeam(playerTypes, 1, 3);
 
     // формирование команды противника
     const enemyTypes = [Daemon, Undead, Vampire];
-    const enemyTeam = generateTeam(enemyTypes, 3, 3);
+    const enemyTeam = generateTeam(enemyTypes, 1, 3);
 
     // отрисовка позиций
     this.drawTeams(playerTeam, enemyTeam);
@@ -118,7 +120,90 @@ export default class GameController {
     this.gamePlay.redrawPositions(this.gameState.characters);
   }
 
+  generateNewLevel() {
+    // формирование команды противника
+    const enemyTypes = [Daemon, Undead, Vampire];
+    const enemyTeam = generateTeam(enemyTypes, this.gameState.level, 3);
+
+    const playerTeamPositions = [];
+    const enemyTeamPositions = [];
+    // собираем доступные позиции игрока и противника
+    for (let i = 0; i < this.gamePlay.boardSize ** 2; i++) {
+      // определяем позициию
+      const position = calcTileType(i, this.gamePlay.boardSize);
+      if (position === 'top-left' || position === 'bottom-left' || position === 'left') { // позиции игрока
+        // добавляем непосредственно полученные позиции
+        playerTeamPositions.push({ index: i, empty: true });
+        // добавляем соседние справа позиции
+        playerTeamPositions.push({ index: i + 1, empty: true });
+      } else if (position === 'top-right' || position === 'bottom-right' || position === 'right') { // позиции противнка
+        // добавляем соседние слева позиции
+        enemyTeamPositions.push({ index: i - 1, empty: true });
+        // добавляем непосредственно полученные позиции
+        enemyTeamPositions.push({ index: i, empty: true });
+      }
+    }
+
+    // размещаем команду противника
+    enemyTeam.characters.forEach(element => {
+      for (let pos = 0; pos < enemyTeamPositions.length; pos++) {
+        const randPos = Math.floor(Math.random() * enemyTeamPositions.length);
+        if (enemyTeamPositions[randPos].empty === true) {
+          enemyTeamPositions[randPos].empty = false;
+          const posClass = new PositionedCharacter(element, enemyTeamPositions[randPos].index);
+          // записываем персонажа в команду противника
+          this.gameState.enemyCharacters.push(posClass);
+          break;
+        }
+      }
+    });
+
+    // повышение уровня оставшихся персонажей игрока и размещение на дефолтные позиции
+    for (let i = 0; i < this.gameState.playerCharacters.length; i++) {
+      const element = this.gameState.playerCharacters[i];
+      // размещаем на дефолтных позициях игрока
+      for (let pos = 0; pos < playerTeamPositions.length; pos++) {
+        const randPos = Math.floor(Math.random() * playerTeamPositions.length);
+        if (playerTeamPositions[randPos].empty === true) {
+          playerTeamPositions[randPos].empty = false;
+          element.position = playerTeamPositions[randPos].index;
+          break;
+        }
+      }
+      // добавляем очки за каждого живого персонажа
+      this.gameState.stat[this.currentGame - 1].gamePoints += 20;
+      // повышаем уровень
+      element.character.level += 1;
+      // повышаем характеристики
+      element.character.attack = Math.max(
+        element.character.attack,
+        Math.round(element.character.attack * ((element.character.health + 80) / 100)),
+      );
+      element.character.defence = Math.max(
+        element.character.defence,
+        Math.round(element.character.defence * ((element.character.health + 80) / 100)),
+      );
+      // повышаем hp
+      if (element.character.health + 80 > 100) {
+        element.character.health = 100;
+      } else {
+        element.character.health += 80;
+      }
+    }
+
+    this.gameState.characters = [
+      ...this.gameState.playerCharacters, ...this.gameState.enemyCharacters,
+    ];
+
+    this.gamePlay.redrawPositions(this.gameState.characters);
+  }
+
   onCellClick(index) {
+    if (this.gameState.game === 'over') {
+      GamePlay.showError('Игра окончена! Нажмите New Game для начала новой игры.');
+      return;
+    }
+
     for (let cellIndex = 0; cellIndex < this.gamePlay.cells.length; cellIndex++) {
       this.gamePlay.deselectCell(cellIndex); // убираем выделение других клеток
     }
@@ -149,6 +234,8 @@ export default class GameController {
             const char = this.gameState.selectedChar;
             if (this.canAttack(char.character.type, char.position, index)) {
               this.attack(char, index);
+              // добавляем очки за проведение атаки
+              this.gameState.stat[this.currentGame - 1].gamePoints += 5;
             } else {
               GamePlay.showError('Вы не можете атаковать выбранным персонажем так далеко!');
               // очищаем данные о выбранном персонаже
@@ -165,6 +252,8 @@ export default class GameController {
         const char = this.gameState.selectedChar;
         if (this.canMove(char.character.type, char.position, index)) {
           this.move(char, index);
+          // добавляем очки за передвижение
+          this.gameState.stat[this.currentGame - 1].gamePoints += 1;
         } else {
           GamePlay.showError('Вы не можете переместить этого персонажа сюда!');
           // очищаем данные о выбранном персонаже
@@ -177,6 +266,9 @@ export default class GameController {
   }
 
   onCellEnter(index) {
+    if (this.gameState.game === 'over') {
+      return;
+    }
     if (this.gamePlay.cells[index].children.length > 0) {
       // показываем tooltip при наведении на любого персонажа
       const child = this.gamePlay.cells[index].children[0];
@@ -219,6 +311,9 @@ export default class GameController {
   }
 
   onCellLeave(index) {
+    if (this.gameState.game === 'over') {
+      return;
+    }
     this.gamePlay.hideCellTooltip(index);
     this.gamePlay.setCursor(cursors.auto);
     if (this.gameState.selectedChar && this.gameState.selectedChar.position !== index) {
@@ -246,25 +341,30 @@ export default class GameController {
       // передаём ход противнику
       this.gameState.step = 'enemy';
       // запускаем действия противника
-      this.enemyAction();
+      setTimeout(() => this.enemyAction(), 500);
     } else { // если был ход противника
       // передаём ход игроку
       this.gameState.step = 'user';
     }
   }
 
-  attack(char, toIndex) {
+  attack(attacker, toIndex) {
     let damage;
     // перебираем массив с персонажами
     for (let i = 0; i < this.gameState.characters.length; i++) {
-      const element = this.gameState.characters[i];
+      const target = this.gameState.characters[i];
       // если позиция персонажа из массива совпадает с выбранной точкой
-      if (element.position === toIndex) {
+      if (target.position === toIndex) {
         damage = Math.max(
-          char.character.attack - element.character.defence,
-          char.character.attack * 0.1,
+          attacker.character.attack - target.character.defence,
+          Math.round(attacker.character.attack * 0.1),
         );
-        element.character.health -= damage;
+        target.character.health -= damage;
+        console.log(`[LOG] ${attacker.character.type} атаковал ${target.character.type} - урон ${damage}`);
+        if (target.character.health <= 0) {
+          console.log(`[LOG] ${target.character.type} был убит персонажем ${attacker.character.type}`);
+          this.deleteChar(target);
+        }
       }
     }
 
@@ -279,7 +379,7 @@ export default class GameController {
         // передаём ход противнику
         this.gameState.step = 'enemy';
         // запускаем действия противника
-        this.enemyAction();
+        setTimeout(() => this.enemyAction(), 200);
       } else { // если был ход противника
         // передаём ход игроку
         this.gameState.step = 'user';
@@ -294,6 +394,14 @@ export default class GameController {
     // 2) если атака произведена не была, то случайный противник двигается на случайную
     // доступную клетку
 
+    for (let cellIndex = 0; cellIndex < this.gamePlay.cells.length; cellIndex++) {
+      this.gamePlay.deselectCell(cellIndex); // убираем выделение других клеток
+    }
+
+    // если персонажей не осталось, ничего не делаем
+    if (this.gameState.enemyCharacters.length === 0) {
+      return;
+    }
     // перебираем массив с противниками
     let isAttacking = false;
     for (let en = 0; en < this.gameState.enemyCharacters.length; en++) {
@@ -308,7 +416,6 @@ export default class GameController {
         if (this.canAttack(enemy.character.type, enemy.position, player.position)) {
           // производим атаку
           this.attack(enemy, player.position);
-          console.log(`${enemy.character.type} атаковал ${player.character.type}`);
           // выставляем ключ, чтобы предотвратить дальнейшие действия противника
           isAttacking = true;
           break;
@@ -325,6 +432,75 @@ export default class GameController {
       const moveIndex = await this.getRandomIndexToMove(randEnemy);
       // двигаем противника на полученную позицию
       this.move(randEnemy, moveIndex);
+    }
+  }
+
+  deleteChar(char) {
+    // перебираем массив со персонажами и удаляем персонажа
+    for (let i = 0; i < this.gameState.characters.length; i++) {
+      if (this.gameState.characters[i].position === char.position) {
+        this.gameState.characters.splice(i, 1);
+      }
+    }
+
+    if ( // если персонаж игрока, обновляем массив персонажей игрока
+      char.character.type === 'bowman'
+      || char.character.type === 'swordsman'
+      || char.character.type === 'magician'
+    ) {
+      // забираем очки, если персонаж игрока убит
+      this.gameState.stat[this.currentGame - 1].gamePoints -= 20;
+      if (this.gameState.stat[this.currentGame - 1].gamePoints < 0) {
+        this.gameState.stat[this.currentGame - 1].gamePoints = 0;
+      }
+      for (let i = 0; i < this.gameState.playerCharacters.length; i++) {
+        if (this.gameState.playerCharacters[i].position === char.position) {
+          this.gameState.playerCharacters.splice(i, 1);
+        }
+      }
+    } else if ( // если персонаж противника, обновляем массив персонажей противника
+      char.character.type === 'daemon'
+      || char.character.type === 'undead'
+      || char.character.type === 'vampire'
+    ) {
+      // добавляем очки за убийство противника
+      this.gameState.stat[this.currentGame - 1].gamePoints += 20;
+      for (let i = 0; i < this.gameState.enemyCharacters.length; i++) {
+        if (this.gameState.enemyCharacters[i].position === char.position) {
+          this.gameState.enemyCharacters.splice(i, 1);
+        }
+      }
+    }
+    // обновляем поле
+    this.gamePlay.redrawPositions(this.gameState.characters);
+
+    // если персонажей игрока больше нет
+    if (this.gameState.playerCharacters.length === 0) {
+      console.log(`[LOG] Поражение! Количество очков: ${this.gameState.stat[this.currentGame - 1].gamePoints}`);
+      this.gameState.game = 'over';
+      return;
+    }
+
+    // если противников больше нет
+    if (this.gameState.enemyCharacters.length === 0) {
+      console.log(`[LOG] Победа! Вы успешно прошли ${this.gameState.level}-й уровень!`);
+      this.gameState.level += 1;
+      setTimeout(() => {
+        this.gameState.step = 'user';
+        if (this.gameState.level === 2) {
+          this.gamePlay.drawUi(themes.desert);
+          this.generateNewLevel();
+        } else if (this.gameState.level === 3) {
+          this.gamePlay.drawUi(themes.arctic);
+          this.generateNewLevel();
+        } else if (this.gameState.level === 4) {
+          this.gamePlay.drawUi(themes.mountain);
+          this.generateNewLevel();
+        } else {
+          console.log(`[LOG] Победа! Вы успешно прошли игру! Количество очков: ${this.gameState.stat[this.currentGame - 1].gamePoints}`);
+          this.gameState.game = 'over';
+        }
+      }, 3000);
     }
   }
 
@@ -437,5 +613,27 @@ export default class GameController {
       }
     }
     return result;
+  }
+
+  onNewGameClick() {
+    // изменением номера текущей игры
+    this.currentGame += 1;
+    this.gameState.stat.push({
+      gameNumber: this.currentGame,
+      gamePoints: 0,
+    });
+
+    // очистка состояний прошлой игры
+    this.gameState.characters = [];
+    this.gameState.playerCharacters = [];
+    this.gameState.enemyCharacters = [];
+    this.gameState.game = 'new';
+    this.gameState.step = 'user';
+    this.gameState.selectedChar = undefined;
+    this.gameState.level = 1;
+
+    // отрисовка поля
+    this.gamePlay.drawUi(themes.prairie);
+    this.initCharacters();
   }
 }

@@ -13,5 +13,15 @@ export default class Swordsman extends Character {
     super(level, type);
     this.attack = 40;
     this.defence = 10;
+    if (level > 1) {
+      this.attack = Math.max(
+        this.attack,
+        Math.round(this.attack * ((this.health + 80) / 100)),
+      );
+      this.defence = Math.max(
+        this.defence,
+        Math.round(this.defence * ((this.health + 80) / 100)),
+      );
+    }
   }
 }
