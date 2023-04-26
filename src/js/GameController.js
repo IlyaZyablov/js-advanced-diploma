@@ -118,6 +118,7 @@ export default class GameController {
     }
 
     if (this.gameState.step === 'user') { // если наш ход
+      // если кликаем по полю, на котором есть какой-либо персонаж
       if (this.gamePlay.cells[index].children.length > 0) {
         const child = this.gamePlay.cells[index].children[0];
         if ( // если пытаемся выбрать нашего персонаж
@@ -134,12 +135,19 @@ export default class GameController {
               this.gameState.selectedChar = element;
             }
           }
-        } else {
+        } else { // если кликаем на персонажа противника
+          // если наш персонаж не выбран, и мы хотим выбрать персонажа противника
           if (this.gameState.selectedChar === undefined) {
-            // если наш персонаж не выбран, и мы хотим выбрать персонажа противника
             GamePlay.showError('Это не Ваш персонаж!');
-          } else {
-            console.log('проверяем атаку');
+          } else { // если наш персонаж выбран, проверяем дальность атаки
+            const char = this.gameState.selectedChar;
+            if (this.canAttack(char.character.type, char.position, index)) {
+              this.attack(char, index);
+            } else {
+              GamePlay.showError('Вы не можете атаковать выбранным персонажем так далеко!');
+              // очищаем данные о выбранном персонаже
+              this.gameState.selectedChar = undefined;
+            }
           }
         }
       } else { // если хотим перейти на свободную клетку
@@ -150,7 +158,7 @@ export default class GameController {
         }
         const char = this.gameState.selectedChar;
         if (this.canMove(char.character.type, char.position, index)) {
-          this.move(index);
+          this.move(char, index);
         } else {
           GamePlay.showError('Вы не можете переместить этого персонажа сюда!');
           // очищаем данные о выбранном персонаже
@@ -212,20 +220,49 @@ export default class GameController {
     }
   }
 
-  move(toIndex) {
+  move(char, toIndex) {
+    // перебираем массив с персонажами
+    for (let i = 0; i < this.gameState.characters.length; i++) {
+      const element = this.gameState.characters[i];
+      // если позиция персонажа из массива совпадает с позицией выбранного персонажа
+      if (element.position === char.position) {
+        element.position = toIndex; // присваиваем новую позицию
+        break;
+      }
+    }
+    // очищаем данные выбранного персонажа, если это был наш ход
+    if (this.gameState.step === 'user') {
+      this.gameState.selectedChar = undefined;
+    }
+    // !!! ПЕРЕДАЁМ ХОД ДРУГОМУ ИГРОКУ
+    // обновляем поле
+    this.gamePlay.redrawPositions(this.gameState.characters);
+  }
+
+  attack(char, toIndex) {
+    let damage;
     // перебираем массив с персонажами
     for (let i = 0; i < this.gameState.characters.length; i++) {
       const element = this.gameState.characters[i];
       // если позиция персонажа из массива совпадает с выбранной точкой
-      if (element.position === this.gameState.selectedChar.position) {
-        element.position = toIndex; // присваиваем новую позицию
+      if (element.position === toIndex) {
+        damage = Math.max(
+          char.character.attack - element.character.defence,
+          char.character.attack * 0.1,
+        );
+        element.character.health -= damage;
       }
     }
-    // очищаем данные выбранные персонажа
-    this.gameState.selectedChar = undefined;
 
-    // перерисовываем поле
-    this.gamePlay.redrawPositions(this.gameState.characters);
+    this.gamePlay.showDamage(toIndex, damage).then(() => {
+      // очищаем данные выбранного персонажа, если это был наш ход
+      if (this.gameState.step === 'user') {
+        this.gameState.selectedChar = undefined;
+      }
+      // !!! ПЕРЕДАЁМ ХОД ДРУГОМУ ИГРОКУ
+      // обновляем поле
+      this.gamePlay.redrawPositions(this.gameState.characters);
+    });
   }
 
   canMove(charType, currentIndex, nextIndex) {
