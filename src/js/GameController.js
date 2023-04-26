@@ -92,6 +92,9 @@ export default class GameController {
         if (playerTeamPositions[randPos].empty === true) {
           playerTeamPositions[randPos].empty = false;
           const posClass = new PositionedCharacter(element, playerTeamPositions[randPos].index);
+          // записываем персонажа в команду игрока
+          this.gameState.playerCharacters.push(posClass);
+          // записываем персонажа в общий массив персонажей
           this.gameState.characters.push(posClass);
           break;
         }
@@ -104,6 +107,9 @@ export default class GameController {
         if (enemyTeamPositions[randPos].empty === true) {
           enemyTeamPositions[randPos].empty = false;
           const posClass = new PositionedCharacter(element, enemyTeamPositions[randPos].index);
+          // записываем персонажа в команду противника
+          this.gameState.enemyCharacters.push(posClass);
+          // записываем персонажа в общий массив персонажей
           this.gameState.characters.push(posClass);
           break;
         }
@@ -230,13 +236,21 @@ export default class GameController {
         break;
       }
     }
-    // очищаем данные выбранного персонажа, если это был наш ход
-    if (this.gameState.step === 'user') {
-      this.gameState.selectedChar = undefined;
-    }
-    // !!! ПЕРЕДАЁМ ХОД ДРУГОМУ ИГРОКУ
     // обновляем поле
     this.gamePlay.redrawPositions(this.gameState.characters);
+
+    // если был ход игрока
+    if (this.gameState.step === 'user') {
+      // очищаем данные выбранного персонажа
+      this.gameState.selectedChar = undefined;
+      // передаём ход противнику
+      this.gameState.step = 'enemy';
+      // запускаем действия противника
+      this.enemyAction();
+    } else { // если был ход противника
+      // передаём ход игроку
+      this.gameState.step = 'user';
+    }
   }
 
   attack(char, toIndex) {
@@ -255,14 +269,78 @@ export default class GameController {
     }
 
     this.gamePlay.showDamage(toIndex, damage).then(() => {
-      // очищаем данные выбранного персонажа, если это был наш ход
-      if (this.gameState.step === 'user') {
-        this.gameState.selectedChar = undefined;
-      }
-      // !!! ПЕРЕДАЁМ ХОД ДРУГОМУ ИГРОКУ
       // обновляем поле
       this.gamePlay.redrawPositions(this.gameState.characters);
+
+      // если был ход игрока
+      if (this.gameState.step === 'user') {
+        // очищаем данные выбранного персонажа
+        this.gameState.selectedChar = undefined;
+        // передаём ход противнику
+        this.gameState.step = 'enemy';
+        // запускаем действия противника
+        this.enemyAction();
+      } else { // если был ход противника
+        // передаём ход игроку
+        this.gameState.step = 'user';
+      }
     });
+  }
+
+  async enemyAction() {
+    // Логика противника:
+    // 1) перебираются все противники, и если в диапазоне их атаки есть игрок,
+    // то атакуем этого игрока
+    // 2) если атака произведена не была, то случайный противник двигается на случайную
+    // доступную клетку
+
+    // перебираем массив с противниками
+    let isAttacking = false;
+    for (let en = 0; en < this.gameState.enemyCharacters.length; en++) {
+      // прерываем дальнейший перебор массива
+      if (isAttacking) {
+        break;
+      }
+      const enemy = this.gameState.enemyCharacters[en];
+      for (let pl = 0; pl < this.gameState.playerCharacters.length; pl++) {
+        const player = this.gameState.playerCharacters[pl];
+        // если у противника есть какой-либо игрок, которого он может атаковать
+        if (this.canAttack(enemy.character.type, enemy.position, player.position)) {
+          // производим атаку
+          this.attack(enemy, player.position);
+          console.log(`${enemy.character.type} атаковал ${player.character.type}`);
+          // выставляем ключ, чтобы предотвратить дальнейшие действия противника
+          isAttacking = true;
+          break;
+        }
+      }
+    }
+
+    // если атака произведена не была
+    if (!isAttacking) {
+      // выбираем случайного персонажа
+      const randEnemyIndex = Math.floor(Math.random() * this.gameState.enemyCharacters.length);
+      const randEnemy = this.gameState.enemyCharacters[randEnemyIndex];
+      // получаем случайную позицию для выбранного персонажа
+      const moveIndex = await this.getRandomIndexToMove(randEnemy);
+      // двигаем противника на полученную позицию
+      this.move(randEnemy, moveIndex);
+    }
+  }
+
+  async getRandomIndexToMove(enemy) {
+    const allowedPositions = [];
+    // перебираем позиции доски
+    for (let i = 0; i < this.gamePlay.boardSize ** 2; i++) {
+      // если персонаж может двигаться на эта позицию, то записываем в массив
+      if (
+        this.canMove(enemy.character.type, enemy.position, i)
+        && this.gamePlay.cells[i].children.length === 0
+      ) {
+        allowedPositions.push(i);
+      }
+    }
+    return allowedPositions[Math.floor(Math.random() * allowedPositions.length)];
   }
 
   canMove(charType, currentIndex, nextIndex) {
