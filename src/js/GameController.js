@@ -85,7 +85,6 @@ export default class GameController {
         enemyTeamPositions.push({ index: i, empty: true });
       }
     }
-    const teamsPositions = [];
     // размещаем команду игрока
     playerTeam.characters.forEach(element => {
       for (let pos = 0; pos < playerTeamPositions.length; pos++) {
@@ -93,7 +92,7 @@ export default class GameController {
         if (playerTeamPositions[randPos].empty === true) {
           playerTeamPositions[randPos].empty = false;
           const posClass = new PositionedCharacter(element, playerTeamPositions[randPos].index);
-          teamsPositions.push(posClass);
+          this.gameState.characters.push(posClass);
           break;
         }
       }
@@ -105,12 +104,12 @@ export default class GameController {
         if (enemyTeamPositions[randPos].empty === true) {
           enemyTeamPositions[randPos].empty = false;
           const posClass = new PositionedCharacter(element, enemyTeamPositions[randPos].index);
-          teamsPositions.push(posClass);
+          this.gameState.characters.push(posClass);
           break;
         }
       }
     });
-    this.gamePlay.redrawPositions(teamsPositions);
+    this.gamePlay.redrawPositions(this.gameState.characters);
   }
 
   onCellClick(index) {
@@ -121,24 +120,41 @@ export default class GameController {
     if (this.gameState.step === 'user') { // если наш ход
       if (this.gamePlay.cells[index].children.length > 0) {
         const child = this.gamePlay.cells[index].children[0];
-        if ( // если выбран наш персонаж
+        if ( // если пытаемся выбрать нашего персонаж
           child.classList.contains('bowman')
           || child.classList.contains('magician')
           || child.classList.contains('swordsman')
         ) {
-          console.log(child.dataset.type);
           this.gamePlay.selectCell(index); // добавляем выделение нужного персонажа
-          this.gameState.selectedChar = {
-            index,
-            type: child.dataset.type,
-          };
+          // перебираем массив с персонажами
+          for (let i = 0; i < this.gameState.characters.length; i++) {
+            const element = this.gameState.characters[i];
+            // если позиция персонажа из массива совпадает с выбранной точкой
+            if (element.position === index) {
+              this.gameState.selectedChar = element;
+            }
+          }
         } else {
-          if (this.gameState.selectedChar.index === undefined) {
+          if (this.gameState.selectedChar === undefined) {
             // если наш персонаж не выбран, и мы хотим выбрать персонажа противника
             GamePlay.showError('Это не Ваш персонаж!');
           } else {
             console.log('проверяем атаку');
           }
+        }
+      } else { // если хотим перейти на свободную клетку
+        if (this.gameState.selectedChar === undefined) {
+          // если наш персонаж не выбран, и мы хотим кликаем по пустым клеткам
+          GamePlay.showError('Выберите персонажа для перемещения!');
+          return;
+        }
+        const char = this.gameState.selectedChar;
+        if (this.canMove(char.character.type, char.position, index)) {
+          this.move(index);
+        } else {
+          GamePlay.showError('Вы не можете переместить этого персонажа сюда!');
+          // очищаем данные о выбранном персонаже
+          this.gameState.selectedChar = undefined;
         }
       }
     } else {
@@ -163,10 +179,10 @@ export default class GameController {
       ) {
         this.gamePlay.setCursor(cursors.pointer);
       } else { // мы наводимся не на своего персонажа
-        if (this.gameState.selectedChar.index !== undefined) {
+        if (this.gameState.selectedChar !== undefined) {
           // если персонаж может атаковать на такое расстояние
           const char = this.gameState.selectedChar;
-          if (this.canAttack(char.type, char.index, index)) {
+          if (this.canAttack(char.character.type, char.position, index)) {
             this.gamePlay.setCursor(cursors.crosshair);
             this.gamePlay.selectCell(index, 'red'); // добавляем выделение противника
           } else {
@@ -175,10 +191,10 @@ export default class GameController {
         }
       }
     } else {
-      if (this.gameState.selectedChar.index !== undefined) {
+      if (this.gameState.selectedChar !== undefined) {
         // если персонаж может сюда пройти
         const char = this.gameState.selectedChar;
-        if (this.canMove(char.type, char.index, index)) {
+        if (this.canMove(char.character.type, char.position, index)) {
           this.gamePlay.setCursor(cursors.pointer);
           this.gamePlay.selectCell(index, 'green'); // добавляем выделение нужного квадрата
         } else {
@@ -191,9 +207,25 @@ export default class GameController {
   onCellLeave(index) {
     this.gamePlay.hideCellTooltip(index);
     this.gamePlay.setCursor(cursors.auto);
-    if (this.gameState.selectedChar.index !== index) {
+    if (this.gameState.selectedChar && this.gameState.selectedChar.position !== index) {
       this.gamePlay.deselectCell(index);
     }
+  }
+
+  move(toIndex) {
+    // перебираем массив с персонажами
+    for (let i = 0; i < this.gameState.characters.length; i++) {
+      const element = this.gameState.characters[i];
+      // если позиция персонажа из массива совпадает с выбранной точкой
+      if (element.position === this.gameState.selectedChar.position) {
+        element.position = toIndex; // присваиваем новую позицию
+      }
+    }
+    // очищаем данные выбранные персонажа
+    this.gameState.selectedChar = undefined;
+
+    // перерисовываем поле
+    this.gamePlay.redrawPositions(this.gameState.characters);
   }
 
   canMove(charType, currentIndex, nextIndex) {
