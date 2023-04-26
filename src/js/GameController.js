@@ -126,6 +126,7 @@ export default class GameController {
           || child.classList.contains('magician')
           || child.classList.contains('swordsman')
         ) {
+          console.log(child.dataset.type);
           this.gamePlay.selectCell(index); // добавляем выделение нужного персонажа
           this.gameState.selectedChar = {
             index,
@@ -162,16 +163,22 @@ export default class GameController {
       ) {
         this.gamePlay.setCursor(cursors.pointer);
       } else { // мы наводимся не на своего персонажа
-        console.log('если навелись не на нашего');
         if (this.gameState.selectedChar.index !== undefined) {
-          this.gamePlay.setCursor(cursors.crosshair);
-          this.gamePlay.selectCell(index, 'red'); // добавляем выделение противника
+          // если персонаж может атаковать на такое расстояние
+          const char = this.gameState.selectedChar;
+          if (this.canAttack(char.type, char.index, index)) {
+            this.gamePlay.setCursor(cursors.crosshair);
+            this.gamePlay.selectCell(index, 'red'); // добавляем выделение противника
+          } else {
+            this.gamePlay.setCursor(cursors.notallowed);
+          }
         }
       }
     } else {
       if (this.gameState.selectedChar.index !== undefined) {
         // если персонаж может сюда пройти
-        if (this.canMove(index)) {
+        const char = this.gameState.selectedChar;
+        if (this.canMove(char.type, char.index, index)) {
           this.gamePlay.setCursor(cursors.pointer);
           this.gamePlay.selectCell(index, 'green'); // добавляем выделение нужного квадрата
         } else {
@@ -189,22 +196,86 @@ export default class GameController {
     }
   }
 
-  canMove(index) {
-    const { selectedChar } = this.gameState;
+  canMove(charType, currentIndex, nextIndex) {
     let result = false;
-    // проверяем движение мечника
-    if (selectedChar.type === 'swordsman') {
-      if ( // движение по вертикали
-        Math.abs(selectedChar.index - index) % this.gamePlay.boardSize === 0
-        && Math.abs(selectedChar.index - index) <= this.gamePlay.boardSize * 4
-      ) {
-        result = true;
-      } else if ( // движение по горизонтали
-        Math.abs(selectedChar.index - index) <= 4
-        && this.getHorizontalLine(selectedChar.index) === this.getHorizontalLine(index)
-      ) {
+    let stepLength = 0;
+    if (charType === 'swordsman' || charType === 'undead') {
+      stepLength = 4;
+    } else if (charType === 'bowman' || charType === 'vampire') {
+      stepLength = 2;
+    } else if (charType === 'magician' || charType === 'daemon') {
+      stepLength = 1;
+    }
+    if ( // движение по вертикали
+      Math.abs(currentIndex - nextIndex) % this.gamePlay.boardSize === 0
+      && Math.abs(currentIndex - nextIndex) <= this.gamePlay.boardSize * stepLength
+    ) {
+      result = true;
+    } else if ( // движение по горизонтали
+      Math.abs(currentIndex - nextIndex) <= stepLength
+      && this.getHorizontalLine(currentIndex) === this.getHorizontalLine(nextIndex)
+    ) {
+      result = true;
+    } else if ( // правая диагональ
+      Math.abs(currentIndex - nextIndex) % (this.gamePlay.boardSize - 1) === 0
+      && Math.abs(currentIndex - nextIndex) <= (this.gamePlay.boardSize - 1) * stepLength
+    ) {
+      result = true;
+    } else if ( // левая диагональ
+      Math.abs(currentIndex - nextIndex) % (this.gamePlay.boardSize + 1) === 0
+      && Math.abs(currentIndex - nextIndex) <= (this.gamePlay.boardSize + 1) * stepLength
+    ) {
+      result = true;
+    }
+    return result;
+  }
+
+  canAttack(charType, currentIndex, nextIndex) {
+    let result = false;
+    let attackLength = 0;
+    if (charType === 'swordsman' || charType === 'undead') {
+      attackLength = 1;
+    } else if (charType === 'bowman' || charType === 'vampire') {
+      attackLength = 2;
+    } else if (charType === 'magician' || charType === 'daemon') {
+      attackLength = 4;
+    }
+    // проверяем радиус
+    if ( // если расхождение по линиям уже больше доступного радиуса атаки
+      Math.abs(
+        this.getHorizontalLine(currentIndex) - this.getHorizontalLine(nextIndex),
+      ) > attackLength
+    ) {
+      return false;
+    }
+
+    if ( // если на одной и той же линии
+      this.getHorizontalLine(currentIndex) === this.getHorizontalLine(nextIndex)
+    ) {
+      if (Math.abs(currentIndex - nextIndex) <= attackLength) {
         result = true;
       }
+      return result;
+    }
+
+    // во всех иных случаях ищем аналогичную позицию нашего персонажа
+    // в линии, соответствующей линии противника (по столбику вверх или вниз)
+    const differenceIndex = Math.abs(
+      this.getHorizontalLine(currentIndex) - this.getHorizontalLine(nextIndex),
+    ) * this.gamePlay.boardSize;
+    let similarIndexInEnemyRow;
+
+    // если наш персонаж по линии ниже, чем персонаж противника
+    if (this.getHorizontalLine(currentIndex) > this.getHorizontalLine(nextIndex)) {
+      similarIndexInEnemyRow = currentIndex - differenceIndex;
+    } else { // если наш персонаж по линии выше, чем персонаж противника
+      similarIndexInEnemyRow = currentIndex + differenceIndex;
+    }
+
+    // и теперь рассчитал позицию нашего персонажа, если бы он был на одной
+    // линии с противником, вычисляем возможность атаки
+    if (Math.abs(similarIndexInEnemyRow - nextIndex) <= attackLength) {
+      result = true;
     }
     return result;
   }
