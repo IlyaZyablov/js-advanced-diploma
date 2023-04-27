@@ -17,9 +17,9 @@ export default class Undead extends Character {
       if (level === 2) {
         this.health = 55;
       } else if (level === 3) {
-        this.health = 65;
+        this.health = 75;
       } else if (level === 4) {
-        this.health = 80;
+        this.health = 90;
       }
       this.attack = Math.max(
         this.attack,

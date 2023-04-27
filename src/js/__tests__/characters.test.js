@@ -51,3 +51,17 @@ test('characters team test', () => {
   expect(playerTeam.characters[0].level).toBeLessThan(maxLevel + 1);
   expect(playerTeam.characters[1].level).toBeGreaterThan(0);
 });
+
+test.each([
+  [Bowman, 'swordsman'],
+  [Daemon, 'swordsman'],
+  [Magician, 'swordsman'],
+  [Swordsman, 'bowman'],
+  [Undead, 'bowman'],
+  [Vampire, 'bowman'],
+])('features test', (Char, type) => {
+  expect(() => {
+    // eslint-disable-next-line no-unused-vars
+    const character = new Char(1, type);
+  }).toThrow();
+});
