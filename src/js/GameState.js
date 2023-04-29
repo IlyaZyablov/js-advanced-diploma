@@ -3,7 +3,6 @@ export default class GameState {
     this.game = 'new';
     this.step = 'user';
     this.selectedChar = undefined;
-    this.characters = [];
     this.playerCharacters = [];
     this.enemyCharacters = [];
     this.level = 1;

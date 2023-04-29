@@ -57,3 +57,9 @@ export function calcHealthLevel(health) {
 
   return 'high';
 }
+
+// функция, возвращающая вывод описания
+export function getDescription(strings, level, attack, defence, health) {
+  const [levelIcon, attackIcon, defenceIcon, healthIcon] = strings;
+  return `${levelIcon} ${level} ${attackIcon} ${attack} ${defenceIcon} ${defence} ${healthIcon} ${health}`;
+}
