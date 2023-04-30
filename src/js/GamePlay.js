@@ -1,3 +1,5 @@
+import iziToast from 'izitoast';
+
 import { calcHealthLevel, calcTileType } from './utils';
 
 export default class GamePlay {
@@ -182,12 +184,44 @@ export default class GamePlay {
     this.loadGameListeners.forEach(o => o.call(null));
   }
 
-  static showError(message) {
-    alert(message);
+  static showMessage(type, message) {
+    if (type === 'success') {
+      iziToast.success({
+        message,
+        position: 'bottomCenter',
+        timeout: 3000,
+      });
+    } else if (type === 'error') {
+      iziToast.error({
+        message,
+        position: 'bottomCenter',
+        timeout: 3000,
+      });
+    } else if (type === 'info') {
+      iziToast.info({
+        message,
+        position: 'bottomCenter',
+        timeout: 3000,
+      });
+    }
   }
 
-  static showMessage(message) {
-    alert(message);
+  static saveLog(message) {
+    const logContent = document.getElementById('log-content');
+    logContent.insertAdjacentHTML('beforeEnd', `
+      <div class="log-item">${message}</div>
+    `);
+
+    logContent.scrollTop = logContent.scrollHeight;
+  }
+
+  static clearLog() {
+    document.getElementById('log-content').innerHTML = '';
+  }
+
+  static redrawPoints(points) {
+    const logPoints = document.getElementById('log-points');
+    logPoints.textContent = points;
   }
 
   selectCell(index, color = 'yellow') {

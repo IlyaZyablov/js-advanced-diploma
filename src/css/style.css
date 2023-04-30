@@ -252,3 +252,33 @@ body {
     font-size: 1.5rem;
   }
 }
+
+#game-container {
+  margin-bottom: 10px;
+}
+
+.log-container {
+  width: 500px;
+  margin: auto;
+  font-family: "Comic Sans MS", sans-serif;
+}
+
+.log-header {
+  height: 20px;
+  padding: 5px;
+  text-align: center;
+  background-color: #b59f5b;
+}
+
+#log-content {
+  height: 135px;
+  background-color: #8a8a8a;
+  overflow-y: scroll;
+}
+
+.log-item {
+  background-color: #f8f9fa;
+  padding: 5px;
+  margin-bottom: 1px;
+  text-align: center;
+}

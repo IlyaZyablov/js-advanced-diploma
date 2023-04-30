@@ -153,7 +153,7 @@ export default class GameController {
         }
       }
       // добавляем очки за каждого живого персонажа
-      this.gameState.stat[this.gameState.gameNumber - 1].gamePoints += 20;
+      this.updatePoints(20);
       // повышаем уровень и характеристики
       element.character.levelUp();
     }
@@ -165,7 +165,7 @@ export default class GameController {
 
   onCellClick(index) {
     if (this.gameState.game === 'over') {
-      GamePlay.showError('Игра окончена! Нажмите New Game для начала новой игры.');
+      GamePlay.showMessage('error', 'Игра окончена! Нажмите New Game для начала новой игры.');
       return;
     }
 
@@ -175,7 +175,7 @@ export default class GameController {
 
     // если не наш ход
     if (this.gameState.step !== 'user') {
-      GamePlay.showError('Сейчас не Ваш ход!');
+      GamePlay.showMessage('error', 'Сейчас не Ваш ход!');
       return;
     }
 
@@ -199,7 +199,7 @@ export default class GameController {
       } else { // если кликаем на персонажа противника
         // если наш персонаж не выбран, и мы хотим выбрать персонажа противника
         if (this.gameState.selectedChar === undefined) {
-          GamePlay.showError('Это не Ваш персонаж!');
+          GamePlay.showMessage('error', 'Это не Ваш персонаж!');
           return;
         }
         // если наш персонаж выбран, проверяем дальность атаки
@@ -207,9 +207,11 @@ export default class GameController {
         if (this.canAttack(char.character.type, char.position, index)) {
           this.attack(char, index);
           // добавляем очки за проведение атаки
-          this.gameState.stat[this.gameState.gameNumber - 1].gamePoints += 5;
+          this.updatePoints(5);
         } else {
-          GamePlay.showError('Вы не можете атаковать выбранным персонажем так далеко!');
+          GamePlay.showMessage('error', 'Вы не можете атаковать выбранным персонажем так далеко!');
+          // меняем курсор на стрелку
+          this.gamePlay.setCursor(cursors.auto);
           // очищаем данные о выбранном персонаже
           this.gameState.selectedChar = undefined;
         }
@@ -217,16 +219,18 @@ export default class GameController {
     } else { // если хотим перейти на свободную клетку
       if (this.gameState.selectedChar === undefined) {
         // если наш персонаж не выбран, и мы хотим кликаем по пустым клеткам
-        GamePlay.showError('Выберите персонажа для перемещения!');
+        GamePlay.showMessage('error', 'Выберите персонажа для перемещения!');
         return;
       }
       const char = this.gameState.selectedChar;
       if (this.canMove(char.character.type, char.position, index)) {
         this.move(char, index);
         // добавляем очки за передвижение
-        this.gameState.stat[this.gameState.gameNumber - 1].gamePoints += 1;
+        this.updatePoints(1);
       } else {
-        GamePlay.showError('Вы не можете переместить этого персонажа сюда!');
+        GamePlay.showMessage('error', 'Вы не можете переместить этого персонажа сюда!');
+        // меняем курсор на стрелку
+        this.gamePlay.setCursor(cursors.auto);
         // очищаем данные о выбранном персонаже
         this.gameState.selectedChar = undefined;
       }
@@ -337,9 +341,9 @@ export default class GameController {
           Math.round(attacker.character.attack * 0.1),
         );
         target.character.health -= damage;
-        console.log(`[LOG] ${attacker.character.type} атаковал ${target.character.type} - урон ${damage}`);
+        GamePlay.saveLog(`${attacker.character.type} атаковал ${target.character.type} - урон ${damage}`);
         if (target.character.health <= 0) {
-          console.log(`[LOG] ${target.character.type} был убит персонажем ${attacker.character.type}`);
+          GamePlay.saveLog(`${target.character.type} был убит персонажем ${attacker.character.type}`);
           this.deleteChar(target);
         }
       }
@@ -422,10 +426,7 @@ export default class GameController {
       || char.character.type === 'magician'
     ) {
       // забираем очки, если персонаж игрока убит
-      this.gameState.stat[this.gameState.gameNumber - 1].gamePoints -= 20;
-      if (this.gameState.stat[this.gameState.gameNumber - 1].gamePoints < 0) {
-        this.gameState.stat[this.gameState.gameNumber - 1].gamePoints = 0;
-      }
+      this.updatePoints(-20);
       for (let i = 0; i < this.gameState.playerCharacters.length; i++) {
         if (this.gameState.playerCharacters[i].position === char.position) {
           this.gameState.playerCharacters.splice(i, 1);
@@ -437,7 +438,7 @@ export default class GameController {
       || char.character.type === 'vampire'
     ) {
       // добавляем очки за убийство противника
-      this.gameState.stat[this.gameState.gameNumber - 1].gamePoints += 20;
+      this.updatePoints(20);
       for (let i = 0; i < this.gameState.enemyCharacters.length; i++) {
         if (this.gameState.enemyCharacters[i].position === char.position) {
           this.gameState.enemyCharacters.splice(i, 1);
@@ -451,22 +452,23 @@ export default class GameController {
 
     // если персонажей игрока больше нет
     if (this.gameState.playerCharacters.length === 0) {
-      console.log(`[LOG] Поражение! Количество очков: ${this.gameState.stat[this.gameState.gameNumber - 1].gamePoints}`);
+      GamePlay.showMessage('error', `Поражение! Количество очков: ${this.gameState.stat[this.gameState.gameNumber - 1].gamePoints}`);
       this.gameState.game = 'over';
       return;
     }
 
     // если противников больше нет
     if (this.gameState.enemyCharacters.length === 0) {
-      console.log(`[LOG] Победа! Вы успешно прошли ${this.gameState.level}-й уровень!`);
+      GamePlay.showMessage('success', `Вы успешно прошли ${this.gameState.level}-й уровень!`);
       this.gameState.level += 1;
       setTimeout(() => {
         this.gameState.step = 'user';
         if (this.gameState.level <= 4) {
           this.drawBoard(this.gameState.level);
+          GamePlay.showMessage('info', 'Переход на следующий уровень...');
           this.generateNewLevel();
         } else {
-          console.log(`[LOG] Победа! Вы успешно прошли игру! Количество очков: ${this.gameState.stat[this.gameState.gameNumber - 1].gamePoints}`);
+          GamePlay.showMessage('success', `Вы успешно прошли игру! Количество очков: ${this.gameState.stat[this.gameState.gameNumber - 1].gamePoints}`);
           this.gameState.game = 'over';
         }
       }, 3000);
@@ -623,7 +625,7 @@ export default class GameController {
 
   onLoadGameClick() {
     if (!this.stateService.load()) {
-      GamePlay.showError('У вас нет сохранённых игр!');
+      GamePlay.showMessage('error', 'У вас нет сохранённых игр!');
       return;
     }
     // получаем данные
@@ -681,17 +683,32 @@ export default class GameController {
     // записываем статистику
     this.gameState.stat = loadGameInfo.stat;
 
+    // обновляем данные очков
+    GamePlay.redrawPoints(this.gameState.stat[this.gameState.gameNumber - 1].gamePoints);
+
+    // очищаем лог
+    GamePlay.clearLog();
+
     // отрисовываем поле и персонажей
     this.drawBoard(this.gameState.level);
     this.gamePlay.redrawPositions([
       ...this.gameState.playerCharacters, ...this.gameState.enemyCharacters,
     ]);
 
-    console.log('[LOG] Игра успешно загружена!');
+    GamePlay.showMessage('success', 'Игра успешно загружена!');
   }
 
   onSaveGameClick() {
     this.stateService.save(this.gameState);
-    console.log('[LOG] Игра успешно сохранена!');
+    GamePlay.showMessage('success', 'Игра успешно сохранена!');
+  }
+
+  updatePoints(points) {
+    this.gameState.stat[this.gameState.gameNumber - 1].gamePoints += points;
+    if (this.gameState.stat[this.gameState.gameNumber - 1].gamePoints < 0) {
+      this.gameState.stat[this.gameState.gameNumber - 1].gamePoints = 0;
+    }
+    // обновляем визуальные данные
+    GamePlay.redrawPoints(this.gameState.stat[this.gameState.gameNumber - 1].gamePoints);
   }
 }

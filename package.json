@@ -41,6 +41,7 @@
     "webpack-dev-server": "^4.13.3"
   },
   "dependencies": {
-    "core-js": "^3.28.0"
+    "core-js": "^3.28.0",
+    "izitoast": "^1.4.0"
   }
 }
