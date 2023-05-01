@@ -618,6 +618,12 @@ export default class GameController {
     this.gameState.selectedChar = undefined;
     this.gameState.level = 1;
 
+    // обновляем данные очков
+    GamePlay.redrawPoints(this.gameState.stat[this.gameState.gameNumber - 1].gamePoints);
+
+    // очищаем лог
+    GamePlay.clearLog();
+
     // отрисовка поля
     this.drawBoard(1);
     this.initCharacters();

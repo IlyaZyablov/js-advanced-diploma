@@ -1,4 +1,4 @@
-import { getDescription } from '../GameController';
+import { getDescription } from '../utils';
 
 test.each([
   [1, 25, 25, 50, '🎖 1 ⚔ 25 🛡 25 ❤ 50'],
